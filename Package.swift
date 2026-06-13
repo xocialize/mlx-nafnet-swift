@@ -14,7 +14,7 @@ let package = Package(
         .library(name: "MLXNAFNet", targets: ["MLXNAFNet"]),
     ],
     dependencies: [
-        .package(path: "../mlx-engine-swift"),
+        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.3.0"),
         .package(url: "https://github.com/xocialize/nafnet-mlx-swift.git", from: "0.1.0"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.6"),
     ],
