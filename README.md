@@ -27,4 +27,9 @@ let resp = try await engine.run(ImageRestoreRequest(image: noisyImage)) as! Imag
 // resp.image — restored, same dimensions, .png
 ```
 
+## Consuming it
+
+Public + version-tagged on github.com/xocialize. Add by tagged URL:
+`.package(url: "https://github.com/xocialize/mlx-nafnet-swift", from: "0.1.0")`, then import `MLXNAFNet` (the conformant `imageRestore` package). Builds standalone — its engine contract (`MLXToolKit`) and model-core dependencies are tagged-URL net deps, no local checkouts.
+
 Requirements: macOS 26+ (Apple Silicon, Metal GPU). MIT throughout (port, architecture, checkpoints).
