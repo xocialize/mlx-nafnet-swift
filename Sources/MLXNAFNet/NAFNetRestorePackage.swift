@@ -70,7 +70,12 @@ public final class NAFNetRestorePackage: ModelPackage {
         let weightsURL: URL
         if let repo = configuration.variant.repo {
             let hub = configuration.modelsRootDirectory.map { HubApi(downloadBase: $0) } ?? HubApi()
-            let dir = try await hub.snapshot(from: Hub.Repo(id: repo), matching: ["model.safetensors"])
+            // Forward download progress to the engine's ambient sink so prepare() surfaces a real
+            // `.downloading(fraction:…)` phase (MLXEngineUI ModelStateView). No-op when unbound.
+            let dir = try await hub.snapshot(from: Hub.Repo(id: repo),
+                                             matching: ["model.safetensors"]) { progress, speed in
+                WeightDownloadProgress.report(fraction: progress.fractionCompleted, bytesPerSecond: speed)
+            }
             weightsURL = dir.appendingPathComponent("model.safetensors")
         } else {
             guard let bundled = bundledSignageWeightsURL else {
