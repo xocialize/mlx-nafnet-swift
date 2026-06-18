@@ -468,12 +468,15 @@ public extension NAFNet {
             throw NAFNetError.weightsNotFound(url.path)
         }
 
-        let arrays: [String: MLXArray]
+        var arrays: [String: MLXArray]
         do {
             arrays = try MLX.loadArrays(url: url)
         } catch {
             throw NAFNetError.loadFailed(String(describing: error))
         }
+        // mlx-community checkpoints (SIDD/GoPro/REDS width64) ship the UPSTREAM key layout; remap to
+        // this port's module tree when detected (the bundled signage weights are already port-layout).
+        arrays = Self.remapUpstreamKeysIfNeeded(arrays)
 
         let loaded = ModuleParameters.unflattened(arrays)
         do {
@@ -483,5 +486,63 @@ public extension NAFNet {
         }
 
         MLX.eval(parameters())
+    }
+
+    // MARK: - Upstream key remap
+
+    /// The mlx-community NAFNet checkpoints (`NAFNet-{SIDD,GoPro,REDS}-width64`) keep the **upstream**
+    /// PyTorch key layout — separate `ups`/`downs` ModuleLists, flat `encoders.i.j` / `decoders.i.j` /
+    /// `middle_blks.j` block arrays, and flat block-internal `norm1` / `norm2` / `sca` names — whereas
+    /// this port nests them (`encoders.i.blocks.layers.j`, `decoders.i.upConv`, `norm1.norm`,
+    /// `sca.conv`). The bundled signage weights are pre-sanitized to the port layout, so only the
+    /// mlx-community checkpoints need remapping. Tensors are already MLX-NHWC in both — no transpose.
+    /// Detected by the presence of top-level `ups.` / `downs.` keys (absent in the port layout).
+    static func remapUpstreamKeysIfNeeded(_ arrays: [String: MLXArray]) -> [String: MLXArray] {
+        guard isUpstreamLayout(Array(arrays.keys)) else { return arrays }
+        var out: [String: MLXArray] = [:]
+        out.reserveCapacity(arrays.count)
+        for (key, value) in arrays { out[remapUpstreamKey(key)] = value }
+        return out
+    }
+
+    /// True when `keys` are the upstream layout (separate `ups`/`downs` ModuleLists) rather than this
+    /// port's nested layout. The port layout never has top-level `ups.`/`downs.` keys.
+    static func isUpstreamLayout(_ keys: [String]) -> Bool {
+        keys.contains { $0.hasPrefix("ups.") || $0.hasPrefix("downs.") }
+    }
+
+    /// Upstream key → this port's module-tree key. Pure string transform.
+    static func remapUpstreamKey(_ key: String) -> String {
+        let p = key.split(separator: ".").map(String.init)
+        guard let head = p.first else { return key }
+        switch head {
+        case "intro", "ending":
+            return key
+        case "downs":  // downs.I.{weight,bias} → encoders.I.down.{…}
+            guard p.count >= 3 else { return key }
+            return (["encoders", p[1], "down"] + p[2...]).joined(separator: ".")
+        case "ups":    // ups.I.weight → decoders.I.upConv.weight
+            guard p.count >= 3 else { return key }
+            return (["decoders", p[1], "upConv"] + p[2...]).joined(separator: ".")
+        case "middle_blks":  // middle_blks.J.REST → middle_blks.layers.J.<block(REST)>
+            guard p.count >= 3 else { return key }
+            return (["middle_blks", "layers", p[1]] + remapBlockSuffix(Array(p[2...]))).joined(separator: ".")
+        case "encoders", "decoders":  // STAGE.I.J.REST → STAGE.I.blocks.layers.J.<block(REST)>
+            guard p.count >= 4 else { return key }
+            return ([head, p[1], "blocks", "layers", p[2]] + remapBlockSuffix(Array(p[3...]))).joined(separator: ".")
+        default:
+            return key
+        }
+    }
+
+    /// Within a NAFBlock the upstream flat names map to this port's wrapped submodules:
+    /// `norm1.*` → `norm1.norm.*`, `norm2.*` → `norm2.norm.*`, `sca.*` → `sca.conv.*`; all else 1:1.
+    private static func remapBlockSuffix(_ rest: [String]) -> [String] {
+        guard let first = rest.first else { return rest }
+        switch first {
+        case "norm1", "norm2": return [first, "norm"] + rest[1...]
+        case "sca":            return ["sca", "conv"] + rest[1...]
+        default:               return rest
+        }
     }
 }
