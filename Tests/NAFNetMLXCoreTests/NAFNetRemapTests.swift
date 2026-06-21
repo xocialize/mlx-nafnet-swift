@@ -1,5 +1,5 @@
 import XCTest
-@testable import NAFNetMLX
+@testable import NAFNetMLXCore
 
 /// Locks the upstream → port key remap that lets the mlx-community `NAFNet-*-width64` checkpoints
 /// (official PyTorch key layout) load into this port's nested module tree. Proven exhaustively

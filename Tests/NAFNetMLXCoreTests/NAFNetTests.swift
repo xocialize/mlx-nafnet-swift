@@ -16,7 +16,7 @@
 import Testing
 import MLX
 import MLXNN
-@testable import NAFNetMLX
+@testable import NAFNetMLXCore
 
 /// Run a closure with the MLX default device pinned to CPU.
 ///

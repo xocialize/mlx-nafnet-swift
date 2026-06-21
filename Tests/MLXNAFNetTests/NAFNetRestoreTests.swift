@@ -5,7 +5,7 @@ import CoreVideo
 import ImageIO
 import UniformTypeIdentifiers
 import MLXToolKit
-import NAFNetMLX
+import NAFNetMLXCore
 @testable import MLXNAFNet
 
 /// Offline conformance checks — no Metal evaluation. Live restoration is proven in the

@@ -1,6 +1,6 @@
 //
 //  PixelBufferSupport.swift
-//  NAFNetMLX
+//  NAFNetMLXCore
 //
 //  CVPixelBuffer ↔ MLXArray round-trip utilities for full-frame restoration.
 //  Extracted from forge-studio-optimizer's NAFNetProcessor / PixelBufferBridge.

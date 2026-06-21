@@ -6,7 +6,7 @@ import ImageIO
 import UniformTypeIdentifiers
 import MLXToolKit
 import Hub
-import NAFNetMLX
+import NAFNetMLXCore
 
 /// Errors at the NAFNet package boundary.
 public enum NAFNetPackageError: Error, Equatable {
@@ -19,7 +19,7 @@ public enum NAFNetPackageError: Error, Equatable {
 /// removal at constant resolution. The first transform capability of the visual optimization
 /// tier; the Layer-3 planner pairs it with `imageQualityScore` ("restore only where it pays").
 ///
-/// A thin conformance wrapper over the standalone `NAFNetMLX` core (nafnet-mlx-swift); all model
+/// A thin conformance wrapper over the standalone `NAFNetMLXCore` core (nafnet-mlx-swift); all model
 /// logic (NAFNet blocks, fp32 global-pool convention, NHWC) lives there. The default variant is
 /// the bundled signage-trained width-24 checkpoint (no download); public width-64 mlx-community
 /// checkpoints are selectable via configuration.

@@ -2,7 +2,7 @@
 import PackageDescription
 
 // mlx-nafnet-swift — NAFNet image restoration for MLXEngine. ONE repo, TWO products:
-//   • NAFNetMLX — engine-agnostic Swift/MLX core (no MLXToolKit dep; usable standalone)
+//   • NAFNetMLXCore — engine-agnostic Swift/MLX core (no MLXToolKit dep; usable standalone)
 //   • MLXNAFNet — the MLXEngine `imageRestore` ModelPackage over that core
 // Consolidated 2026-06-18: the former standalone `nafnet-mlx-swift` core was folded in here (and
 // archived) so a model is one repo with no cross-repo version skew. Python ref: xocialize/nafnet-mlx.
@@ -12,7 +12,7 @@ let package = Package(
         .macOS(.v26)
     ],
     products: [
-        .library(name: "NAFNetMLX", targets: ["NAFNetMLX"]),
+        .library(name: "NAFNetMLXCore", targets: ["NAFNetMLXCore"]),
         .library(name: "MLXNAFNet", targets: ["MLXNAFNet"]),
     ],
     dependencies: [
@@ -23,7 +23,7 @@ let package = Package(
     targets: [
         // Engine-agnostic core (folded in from nafnet-mlx-swift) — NO MLXToolKit dep, usable standalone.
         .target(
-            name: "NAFNetMLX",
+            name: "NAFNetMLXCore",
             dependencies: [
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXFast", package: "mlx-swift"),
@@ -39,7 +39,7 @@ let package = Package(
             name: "MLXNAFNet",
             dependencies: [
                 .product(name: "MLXToolKit", package: "mlx-engine-swift"),
-                "NAFNetMLX",
+                "NAFNetMLXCore",
                 .product(name: "Hub", package: "swift-transformers"),
             ],
             // NAFNet (MLX) isn't Sendable-audited; the engine serializes lifecycle on
@@ -47,9 +47,9 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
-            name: "NAFNetMLXTests",
+            name: "NAFNetMLXCoreTests",
             dependencies: [
-                "NAFNetMLX",
+                "NAFNetMLXCore",
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXNN", package: "mlx-swift"),
             ]
