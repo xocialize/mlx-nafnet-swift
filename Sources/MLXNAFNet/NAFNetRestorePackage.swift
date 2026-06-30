@@ -4,6 +4,7 @@ import CoreImage
 import CoreVideo
 import ImageIO
 import UniformTypeIdentifiers
+import MLX
 import MLXToolKit
 import Hub
 import NAFNetMLXCore
@@ -99,6 +100,7 @@ public final class NAFNetRestorePackage: ModelPackage {
 
     public func unload() async {
         model = nil
+        MLX.Memory.clearCache()   // release the retained MLX pool so eviction frees RSS (not just drop refs)
     }
 
     public func run(_ request: any CapabilityRequest) async throws -> any CapabilityResponse {

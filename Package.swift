@@ -41,6 +41,7 @@ let package = Package(
             dependencies: [
                 .product(name: "MLXToolKit", package: "mlx-engine-swift"),
                 "NAFNetMLXCore",
+                .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "Hub", package: "swift-transformers"),
             ],
             // NAFNet (MLX) isn't Sendable-audited; the engine serializes lifecycle on
