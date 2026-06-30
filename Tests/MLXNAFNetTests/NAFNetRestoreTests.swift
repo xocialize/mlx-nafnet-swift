@@ -27,6 +27,27 @@ struct NAFNetRestoreTests {
         #expect(r.footprints.contains { $0.quant == .fp16 })
     }
 
+    /// Efficiency adoption (engine 1.14): both footprints declare the split (resident weights floor +
+    /// transient activation peak), so the engine reserves one shared transient across residents.
+    @Test func splitFootprintDeclared() {
+        let fps = NAFNetRestorePackage.manifest.requirements.footprints
+        let fp16 = fps.first { $0.quant == .fp16 }
+        let fp32 = fps.first { $0.quant == .fp32 }
+        #expect(fp16?.peakActivationBytes ?? 0 > 0)        // activation declared, not 0
+        #expect(fp32?.peakActivationBytes ?? 0 > 0)
+        // NAFNet is activation-dominated: the transient peak dwarfs the resident weights floor.
+        #expect((fp16?.peakActivationBytes ?? 0) > (fp16?.residentBytes ?? .max))
+        #expect((fp32?.peakActivationBytes ?? 0) > (fp32?.residentBytes ?? .max))
+    }
+
+    /// `QuantConfigured` so the governor charges the per-variant declared `QuantFootprint`.
+    @Test func quantConfigured() {
+        let cfg: any PackageConfiguration = NAFNetConfiguration(variant: .signage)
+        #expect((cfg as? QuantConfigured)?.quant == .fp16)
+        let cfg64: any PackageConfiguration = NAFNetConfiguration(variant: .siddWidth64)
+        #expect((cfg64 as? QuantConfigured)?.quant == .fp32)
+    }
+
     @Test func surfaceIsTheCanonicalRestoreDescriptor() {
         let s = NAFNetRestorePackage.manifest.surfaces.first
         #expect(s?.capability == .imageRestore)

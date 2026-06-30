@@ -34,9 +34,19 @@ public final class NAFNetRestorePackage: ModelPackage {
             provenance: Provenance(sourceRepo: "mlx-community/NAFNet-SIDD-width64",
                                    revision: "main", tier: 1),
             requirements: RequirementsManifest(
+                // Split footprint (engine 1.14). NAFNet runs the **full frame** (no internal tiling),
+                // so the working set is overwhelmingly activation — weights are tiny. Re-measured via
+                // `nafnet-smoke` through the real MLXServeEngine at a 1024×1024 envelope (see
+                // EFFICIENCY-ADOPTION.md):
+                //   • signage (w24, fp16): floor 5 MB · peak 2034 MB → resident 64 MB / activation 2.0 GB
+                //   • width64 (publics, fp32): floor 443 MB · peak 3271 MB → resident 512 MB / activation 2.9 GB
+                // residentBytes = weights floor (+ overhead); peakActivationBytes = peak − floor. The
+                // engine reserves ONE shared transient across residents, so the activation no longer
+                // bakes into residency — the co-residency win for the optimizer chain. `QuantConfigured`
+                // (NAFNetConfiguration) charges the per-variant quant. Re-measure if the envelope > 1024².
                 footprints: [
-                    QuantFootprint(quant: .fp16, residentBytes: 600_000_000),    // signage w24
-                    QuantFootprint(quant: .fp32, residentBytes: 2_000_000_000),  // width64 publics
+                    QuantFootprint(quant: .fp16, residentBytes:    64_000_000, peakActivationBytes: 2_000_000_000),  // signage w24
+                    QuantFootprint(quant: .fp32, residentBytes:   512_000_000, peakActivationBytes: 2_900_000_000),  // width64 publics
                 ],
                 requiredBackends: [.metalGPU],
                 os: OSRequirement(minMacOS: SemanticVersion(major: 26, minor: 0, patch: 0)),

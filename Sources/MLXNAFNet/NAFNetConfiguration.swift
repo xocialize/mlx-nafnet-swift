@@ -32,11 +32,24 @@ public enum NAFNetVariant: String, Codable, Sendable, CaseIterable {
         }
     }
 
-    /// Conservative resident estimate (weights + full-frame activations).
+    /// Legacy flat estimate (weights + full-frame activations as one number). Superseded by the
+    /// **split** `QuantFootprint` declared on the manifest (engine 1.14): the resident weights floor and
+    /// the transient activation peak are now declared separately (measured via `nafnet-smoke` — see
+    /// EFFICIENCY-ADOPTION.md). Kept for reference only; the manifest is the source of truth.
     var residentBytes: UInt64 {
         switch self {
         case .signage: return 600_000_000
         case .siddWidth64, .goproWidth64, .redsWidth64: return 2_000_000_000
+        }
+    }
+
+    /// The declared-footprint quant this variant maps to. The two NAFNet footprints are different
+    /// quants (signage = fp16, width64 publics = fp32), so the footprint key IS the quant — exposing
+    /// it via `QuantConfigured` lets the governor charge the matching `QuantFootprint` per variant.
+    var quant: Quant {
+        switch self {
+        case .signage: return .fp16
+        case .siddWidth64, .goproWidth64, .redsWidth64: return .fp32
         }
     }
 }
@@ -56,4 +69,11 @@ public struct NAFNetConfiguration: PackageConfiguration, ModelStorable {
     private enum CodingKeys: String, CodingKey {
         case variant
     }
+}
+
+/// `QuantConfigured` (engine 1.14): expose the selected variant's quant so the `MemoryGovernor`
+/// charges the matching declared `QuantFootprint` (signage→fp16, width64→fp32) instead of the
+/// largest-that-fits heuristic. Derived from `variant` (the footprint key here is the quant).
+extension NAFNetConfiguration: QuantConfigured {
+    public var quant: Quant { variant.quant }
 }
