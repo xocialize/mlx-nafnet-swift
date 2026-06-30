@@ -37,17 +37,22 @@ public final class NAFNetRestorePackage: ModelPackage {
             requirements: RequirementsManifest(
                 // Split footprint (engine 1.14). NAFNet runs the **full frame** (no internal tiling),
                 // so the working set is overwhelmingly activation — weights are tiny. Re-measured via
-                // `nafnet-smoke` through the real MLXServeEngine at a 1024×1024 envelope (see
-                // EFFICIENCY-ADOPTION.md):
-                //   • signage (w24, fp16): floor 5 MB · peak 2034 MB → resident 64 MB / activation 2.0 GB
-                //   • width64 (publics, fp32): floor 443 MB · peak 3271 MB → resident 512 MB / activation 2.9 GB
-                // residentBytes = weights floor (+ overhead); peakActivationBytes = peak − floor. The
-                // engine reserves ONE shared transient across residents, so the activation no longer
-                // bakes into residency — the co-residency win for the optimizer chain. `QuantConfigured`
-                // (NAFNetConfiguration) charges the per-variant quant. Re-measure if the envelope > 1024².
+                // RE-BASELINED to in-app phys_footprint (MLXEngineImage, isolate+clearCache, engine 0.17.0
+                // post-load floor). The `nafnet-smoke` MLX-peak under-read the admission-relevant phys by
+                // ~2.9× (MLX cache + process overhead). Floor pass-1 (post-load) confirmed the true weights
+                // resident; the ~5.4 GB the smoke/old-harness mis-read as "floor" was post-run retention —
+                // a BOUNDED working buffer (flat across 3 resident passes, freed on evict), so it belongs in
+                // the transient, not residency:
+                //   • signage (w24, fp16): floor 0.07 GB · peak 5.86 GB → resident 70 MB / activation 5.79 GB (MEASURED)
+                //   • width64 (publics, fp32): NOT yet measured in-app; smoke 0.5/2.9 GB scaled by the ~2.9×
+                //     phys gap → activation ~8.0 GB FLAGGED-pending an in-app width64 run (conservative —
+                //     under-declaring would falsely admit on tight Macs, the BiRefNet-best failure mode).
+                // residentBytes = post-load weights floor; peakActivationBytes = phys peak − floor. The engine
+                // reserves ONE shared transient across residents — the co-residency win for the optimizer
+                // chain. `QuantConfigured` (NAFNetConfiguration) charges the per-variant quant.
                 footprints: [
-                    QuantFootprint(quant: .fp16, residentBytes:    64_000_000, peakActivationBytes: 2_000_000_000),  // signage w24
-                    QuantFootprint(quant: .fp32, residentBytes:   512_000_000, peakActivationBytes: 2_900_000_000),  // width64 publics
+                    QuantFootprint(quant: .fp16, residentBytes:    70_000_000, peakActivationBytes: 5_790_000_000),  // signage w24 (in-app phys)
+                    QuantFootprint(quant: .fp32, residentBytes:   512_000_000, peakActivationBytes: 8_000_000_000),  // width64 publics (FLAGGED: smoke-scaled, in-app pending)
                 ],
                 requiredBackends: [.metalGPU],
                 os: OSRequirement(minMacOS: SemanticVersion(major: 26, minor: 0, patch: 0)),
