@@ -20,6 +20,7 @@ let package = Package(
         .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.10.0"),
         .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.30.0"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.6"),
+        .package(url: "https://github.com/xocialize/mlx-profiling.git", from: "0.1.0"),
     ],
     targets: [
         // Engine-agnostic core (folded in from nafnet-mlx-swift) — NO MLXToolKit dep, usable standalone.
@@ -43,6 +44,7 @@ let package = Package(
                 "NAFNetMLXCore",
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "Hub", package: "swift-transformers"),
+                .product(name: "MLXProfiling", package: "mlx-profiling"),  // env-gated spans (MLX_PROFILE)
             ],
             // NAFNet (MLX) isn't Sendable-audited; the engine serializes lifecycle on
             // InferenceActor, so v5 mode keeps region-isolation a warning — same as siblings.

@@ -6,6 +6,7 @@ import ImageIO
 import UniformTypeIdentifiers
 import MLX
 import MLXToolKit
+import MLXProfiling
 import Hub
 import NAFNetMLXCore
 
@@ -123,8 +124,18 @@ public final class NAFNetRestorePackage: ModelPackage {
         guard let x = rgbNHWC(from: ensureBGRA(pb), width: w, height: h) else {
             throw NAFNetPackageError.imageDecodeFailed("NHWC conversion (\(w)x\(h))")
         }
-        let restored = model(x)
-        guard let outPB = pixelBuffer(fromRGBNHWC: restored, width: w, height: h) else {
+        // The single full-frame forward is profiled (MLX_PROFILE=1). The graph is lazy end-to-end;
+        // cost realizes in the NHWC→pixel-buffer `asArray` materialization, so ONE coarse region
+        // wraps forward + conversion and times the whole graph via the pipeline's own eval
+        // (rife-style — no added evals). Weights load in `load()` (engine prepare), so beginRun
+        // at run entry can't be skewed by a first-run download.
+        let prof = MLXProfiler.shared
+        prof.beginRun("nafnet imageRestore \(configuration.variant) \(w)x\(h)")
+        let restoredPB = prof.region("restore", "forward") {
+            pixelBuffer(fromRGBNHWC: model(x), width: w, height: h)
+        }
+        prof.endRun(denominators: ["image": 1])
+        guard let outPB = restoredPB else {
             throw NAFNetPackageError.imageEncodeFailed
         }
         let outImage: Image
