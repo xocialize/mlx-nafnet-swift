@@ -17,7 +17,8 @@ let package = Package(
         .executable(name: "nafnet-smoke", targets: ["NAFNetSmoke"]),  // drive the package + measure split footprint
     ],
     dependencies: [
-        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.10.0"),
+        // 0.27.0 = the CAN cancellation gate (MLXServeConformance CAN-1..3).
+        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.27.0"),
         .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.30.0"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.6"),
         .package(url: "https://github.com/xocialize/mlx-profiling.git", from: "0.1.0"),
@@ -64,6 +65,7 @@ let package = Package(
                 "MLXNAFNet",
                 .product(name: "MLXToolKit", package: "mlx-engine-swift"),
                 .product(name: "MLXServeCore", package: "mlx-engine-swift"),
+                .product(name: "MLXServeConformance", package: "mlx-engine-swift"),  // CAN gate
             ]
         ),
         // Drives NAFNetRestorePackage through the REAL MLXServeEngine (register → run) and reports the

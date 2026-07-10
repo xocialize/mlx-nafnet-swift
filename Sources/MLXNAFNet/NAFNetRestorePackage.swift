@@ -110,12 +110,16 @@ public final class NAFNetRestorePackage: ModelPackage {
     }
 
     public func run(_ request: any CapabilityRequest) async throws -> any CapabilityResponse {
+        // CAN-1: the entry checkpoint is the FIRST act of run() — before notLoaded validation
+        // (engine ≥ 0.27.0). Mid-run: the full-frame forward is ONE monolithic MLX eval (no
+        // tiling, no iterative loop); the real seams are pre-forward (post-decode) and
+        // post-forward/pre-encode below — see CancellationTests for the cadence of record.
+        try Task.checkCancellation()
         guard let model else { throw PackageError.notLoaded }
         guard request.capability == .imageRestore,
               let req = request as? ImageRestoreRequest else {
             throw PackageError.unsupportedCapability(request.capability)
         }
-        try Task.checkCancellation()
 
         // Image (.png/.jpeg/.rawBGRA8) → BGRA pixel buffer → NHWC [0,1] → NAFNet → pixel buffer → out.
         // Output mirrors the input format: rawBGRA8 in ⇒ rawBGRA8 out (no re-encode); else .png.
@@ -129,6 +133,8 @@ public final class NAFNetRestorePackage: ModelPackage {
         // wraps forward + conversion and times the whole graph via the pipeline's own eval
         // (rife-style — no added evals). Weights load in `load()` (engine prepare), so beginRun
         // at run entry can't be skewed by a first-run download.
+        // Pre-forward checkpoint: last seam before committing to the monolithic full-frame eval.
+        try Task.checkCancellation()
         let prof = MLXProfiler.shared
         prof.beginRun("nafnet imageRestore \(configuration.variant) \(w)x\(h)")
         let restoredPB = prof.region("restore", "forward") {
@@ -138,6 +144,8 @@ public final class NAFNetRestorePackage: ModelPackage {
         guard let outPB = restoredPB else {
             throw NAFNetPackageError.imageEncodeFailed
         }
+        // Post-forward checkpoint: between the forward's materialization and output encode.
+        try Task.checkCancellation()
         let outImage: Image
         if req.image.format == .rawBGRA8 {
             guard let raw = Self.encodeRawBGRA8(outPB) else { throw NAFNetPackageError.imageEncodeFailed }
