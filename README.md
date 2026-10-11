@@ -14,6 +14,12 @@ Restores an `Image` at constant resolution. The Layer-3 pipeline planner pairs i
 | `.goproWidth64` | deblur | `mlx-community/NAFNet-GoPro-width64` |
 | `.redsWidth64` | REDS | `mlx-community/NAFNet-REDS-width64` |
 
+Weights (since 0.5.0, AB-T-0222): the configuration is **hybrid**. Signage declares its bundled checkpoint
+(`BundledWeightSourcing`); a width-64 variant declares its repo (`WeightSourcing`, role `weights`), which MLXEngine
+downloads into its model store before `load()`, with byte progress and resume. `load()` reads the store's flat or
+snapshot layout, and also `<root>/models/<org>/<name>/`, where 0.4.x downloaded through swift-transformers' `HubApi`,
+so existing installs aren't fetched again. Outside the engine it still downloads through `HubApi`.
+
 ## Usage
 
 ```swift

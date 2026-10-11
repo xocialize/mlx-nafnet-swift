@@ -85,7 +85,12 @@ public final class NAFNetRestorePackage: ModelPackage {
                          decoderBlockNums: arch.dec)
 
         let weightsURL: URL
-        if let repo = configuration.variant.repo {
+        if let repo = configuration.variant.repo,
+           let stored = StoreWeights.file("model.safetensors", repo: repo, root: configuration.modelsRootDirectory) {
+            // Materialized by the engine before load() (or by 0.4.x, in the HubApi layout).
+            weightsURL = stored
+        } else if let repo = configuration.variant.repo {
+            // Backstop for a caller outside the engine: download as before, into the HubApi layout.
             let hub = configuration.modelsRootDirectory.map { HubApi(downloadBase: $0) } ?? HubApi()
             // Forward download progress to the engine's ambient sink so prepare() surfaces a real
             // `.downloading(fraction:…)` phase (MLXEngineUI ModelStateView). No-op when unbound.

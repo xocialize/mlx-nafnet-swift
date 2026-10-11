@@ -1,5 +1,6 @@
 import Foundation
 import MLXToolKit
+import NAFNetMLXCore
 
 /// A NAFNet checkpoint this package can load.
 public enum NAFNetVariant: String, Codable, Sendable, CaseIterable {
@@ -57,8 +58,8 @@ public enum NAFNetVariant: String, Codable, Sendable, CaseIterable {
 /// Init-time configuration for `NAFNetRestorePackage` (C9): which checkpoint to load.
 public struct NAFNetConfiguration: PackageConfiguration, ModelStorable {
     public var variant: NAFNetVariant
-    /// Where downloadable weights are materialized. Set by the engine from its `ModelStore`;
-    /// `nil` → the default swift-transformers cache. Excluded from `Codable`.
+    /// The engine's model store, where it materializes `weightSources` before `load()`. Set by the
+    /// engine; `nil` → `load()` downloads into the default swift-transformers cache. Excluded from `Codable`.
     public var modelsRootDirectory: URL?
 
     public init(variant: NAFNetVariant = .signage, modelsRootDirectory: URL? = nil) {
@@ -76,4 +77,26 @@ public struct NAFNetConfiguration: PackageConfiguration, ModelStorable {
 /// largest-that-fits heuristic. Derived from `variant` (the footprint key here is the quant).
 extension NAFNetConfiguration: QuantConfigured {
     public var quant: Quant { variant.quant }
+}
+
+/// What the engine sees of this configuration's weights (contract 1.24): the signage default is bundled in the binary
+/// and needs nothing; a width-64 variant is one network source, which the engine downloads into its model store before
+/// `load()` (sized, previewed and resumable) instead of the package fetching it on first use.
+extension NAFNetConfiguration: WeightSourcing {
+    public var weightSources: [WeightSource] {
+        variant.repo.map { [WeightSource(role: "weights", repo: $0, matching: ["model.safetensors"])] } ?? []
+    }
+
+    /// The store's layouts, including where 0.4.x downloaded them.
+    public func missingWeightSources(storeRoot: URL?) -> [WeightSource] {
+        defaultMissingWeightSources(storeRoot: storeRoot).filter {
+            !StoreWeights.installedByHubAPI("model.safetensors", repo: $0.repo, root: storeRoot)
+        }
+    }
+}
+
+extension NAFNetConfiguration: BundledWeightSourcing {
+    public var bundledWeightSources: [BundledWeightSource] {
+        variant.repo == nil ? [BundledWeightSource(role: "checkpoint", url: bundledSignageWeightsURL)] : []
+    }
 }

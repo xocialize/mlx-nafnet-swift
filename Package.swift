@@ -18,7 +18,8 @@ let package = Package(
     ],
     dependencies: [
         // 0.27.0 = the CAN cancellation gate (MLXServeConformance CAN-1..3).
-        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.27.0"),
+        // ≥ 0.32.0: the engine materializes declared WeightSources before load() (contract 1.24) and probes their flat layout.
+        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.32.0"),
         .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.30.0"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.6"),
         .package(url: "https://github.com/xocialize/mlx-profiling.git", from: "0.1.0"),
