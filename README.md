@@ -33,6 +33,20 @@ let resp = try await engine.run(ImageRestoreRequest(image: noisyImage)) as! Imag
 // resp.image — restored, same dimensions, .png
 ```
 
+## 16 bits end to end (0.6.0)
+
+The surface declares `ToolDescriptor.rawImageFormats = [.rawBGRA8, .rawRGBA16]` (MLXToolKit contract 1.52.0,
+AB-T-0230). A `.rawRGBA16` image comes back `.rawRGBA16`; a PNG or TIFF deeper than 8 bits comes back as a 16-bit PNG.
+- The input is read at 16 bits into the same float32 NHWC tensor, and the output is rounded to 16 bits.
+- The forward is float32 even for the fp16 signage weights (a float32 input promotes them), so the output carries the
+  model's full precision: 46–65 k levels per channel on the G-6 photos, 94–99.6% of values off the 8-bit grid.
+- 8-bit inputs take the 8-bit path unchanged. Gate (2026-10-12): release builds on the GPU, this version against
+  v0.5.0, 7 images × png and rawBGRA8 (and jpeg for the two JPEGs): every output byte-identical.
+- G-6 direct gate (`mlxengine-image/WIP/g6-16bit-gate`, `restore`): the 16-bit output's smooth-area flat-neighbour
+  share is 0.016–0.022 with clipped values left out, against 0.91–0.95 for the 8-bit output. The signage model pushes
+  near-white smooth areas up by a step or so, so 2% of Sony's smooth values clip at 16 bits, where Desktop's 8-bit
+  route used to put the source back.
+
 ## Consuming it
 
 Public + version-tagged on github.com/xocialize. Add by tagged URL:

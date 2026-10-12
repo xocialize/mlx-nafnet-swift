@@ -98,6 +98,76 @@ public func pixelBuffer(fromRGBNHWC array: MLXArray, width: Int, height: Int) ->
     return buffer
 }
 
+// MARK: - 16 bits (MLXToolKit contract 1.52.0, AB-T-0230)
+
+/// The 16-bit pixel format: RGBA, 16 bits per component, little-endian — `.rawRGBA16`'s layout, and the shared tile
+/// driver's `MLXTileProcessor.deepPixelFormat` in the upscale siblings.
+public let deepPixelFormat: OSType = kCVPixelFormatType_64RGBALE
+
+/// Whether `buffer` is a 16-bit (`deepPixelFormat`) buffer.
+public func isDeep(_ buffer: CVPixelBuffer) -> Bool {
+    CVPixelBufferGetPixelFormatType(buffer) == deepPixelFormat
+}
+
+/// RGBA16 `CVPixelBuffer` (`deepPixelFormat`) → `[1, H, W, 3]` RGB float NHWC in [0,1] (each component / 65535).
+@inline(never)
+public func rgbNHWC(fromRGBA16 buffer: CVPixelBuffer, width: Int, height: Int) -> MLXArray? {
+    CVPixelBufferLockBaseAddress(buffer, .readOnly)
+    defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+    guard let base = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+    let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+
+    var rgb = [Float](repeating: 0, count: height * width * 3)
+    for y in 0 ..< height {
+        let src = base.advanced(by: y * bytesPerRow).assumingMemoryBound(to: UInt16.self)
+        let drow = y * width * 3
+        for x in 0 ..< width {
+            rgb[drow + x * 3 + 0] = Float(UInt16(littleEndian: src[x * 4 + 0])) / 65535.0  // R
+            rgb[drow + x * 3 + 1] = Float(UInt16(littleEndian: src[x * 4 + 1])) / 65535.0  // G
+            rgb[drow + x * 3 + 2] = Float(UInt16(littleEndian: src[x * 4 + 2])) / 65535.0  // B
+        }
+    }
+    return MLXArray(rgb, [1, height, width, 3])
+}
+
+/// `[1, H, W, 3]` RGB float (any range; clamped) → RGBA16 `CVPixelBuffer` (`deepPixelFormat`), each component rounded
+/// to 16 bits, alpha opaque.
+@inline(never)
+public func pixelBufferRGBA16(fromRGBNHWC array: MLXArray, width: Int, height: Int) -> CVPixelBuffer? {
+    let rgb = array.asType(.float32).asArray(Float.self)
+    guard rgb.count >= width * height * 3 else { return nil }
+
+    var pb: CVPixelBuffer?
+    let attrs: [String: Any] = [
+        kCVPixelBufferPixelFormatTypeKey as String: deepPixelFormat,
+        kCVPixelBufferWidthKey as String: width,
+        kCVPixelBufferHeightKey as String: height,
+        kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+    ]
+    guard CVPixelBufferCreate(nil, width, height, deepPixelFormat, attrs as CFDictionary, &pb) == kCVReturnSuccess,
+          let buffer = pb else { return nil }
+
+    CVPixelBufferLockBaseAddress(buffer, [])
+    defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+    guard let dstBase = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+    let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+
+    @inline(__always) func word(_ v: Float) -> UInt16 {
+        UInt16(max(0, min(65535, (v * 65535).rounded()))).littleEndian
+    }
+    for y in 0 ..< height {
+        let dst = dstBase.advanced(by: y * bytesPerRow).assumingMemoryBound(to: UInt16.self)
+        let srow = y * width * 3
+        for x in 0 ..< width {
+            dst[x * 4 + 0] = word(rgb[srow + x * 3 + 0])
+            dst[x * 4 + 1] = word(rgb[srow + x * 3 + 1])
+            dst[x * 4 + 2] = word(rgb[srow + x * 3 + 2])
+            dst[x * 4 + 3] = UInt16.max
+        }
+    }
+    return buffer
+}
+
 /// The signage-trained NAFNet checkpoint vendored in this package's bundle
 /// (width=24, [1,1,1,1]; fp16; best val PSNR 41.515 dB — forge ADR-0010).
 public var bundledSignageWeightsURL: URL? {
