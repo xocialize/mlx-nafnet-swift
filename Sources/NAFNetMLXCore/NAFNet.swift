@@ -23,6 +23,7 @@
 
 import Foundation
 import MLX
+import MLXExactConv
 import MLXNN
 
 // MARK: - Primitives
@@ -351,8 +352,11 @@ public final class NAFNet: Module, @unchecked Sendable {
         }
         self._decoders.wrappedValue = decs
 
-        // Ending: width → imgChannels, 3×3, pad 1
-        self._ending.wrappedValue = Conv2d(
+        // Ending: width → imgChannels, 3×3, pad 1. Routed (AB-T-0214): at a width that isn't a multiple of 16 (the
+        // default 24) this is a stride-1 3×3 conv mlx 0.32.2 serves with `pad_in_channels_conv_2D_gpu`, which frees its
+        // zero fill value while the GPU still reads it; under a capped buffer cache (the Image Engine's 2 GiB) the
+        // process dies with "Invalid Resource". `RoutedConv2d` pads the channels in the graph instead (same keys).
+        self._ending.wrappedValue = RoutedConv2d(
             inputChannels: width, outputChannels: imgChannels,
             kernelSize: 3, stride: 1, padding: 1, bias: true
         )

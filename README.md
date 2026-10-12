@@ -47,6 +47,17 @@ AB-T-0230). A `.rawRGBA16` image comes back `.rawRGBA16`; a PNG or TIFF deeper t
   near-white smooth areas up by a step or so, so 2% of Sony's smooth values clip at 16 bits, where Desktop's 8-bit
   route used to put the source back.
 
+## Off mlx's channel-pad helper (0.6.1)
+
+The ending conv (width → 3, 3×3) is a `RoutedConv2d` now (AB-T-0214).
+- **The defect:** at the default width of 24, mlx 0.32.2 serves it through `pad_in_channels_conv_2D_gpu`. That helper
+  frees its zero fill value while the GPU still reads it. Under a capped buffer cache (the Image Engine's 2 GiB) the
+  process can die with `Invalid Resource`. Every forward took it once, at 8 and at 16 bits.
+- **Now:** ExactConv pads the channels to 32 in the graph. At width 64 nothing changes.
+- **Same output:** a Release Image Engine build gave byte-identical general, denoise-draft and 16-bit restores against
+  0.6.0.
+- **Test:** `testEndingConvIsRoutedOffThePadHelper` (XCTest, so it runs on the GPU, against a CPU conv).
+
 ## Consuming it
 
 Public + version-tagged on github.com/xocialize. Add by tagged URL:

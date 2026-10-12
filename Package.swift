@@ -22,6 +22,9 @@ let package = Package(
         // ≥ 0.67.0: contract 1.52.0 — `.rawRGBA16` and `ToolDescriptor.rawImageFormats` (the 16-bit boundary, AB-T-0230).
         .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.67.0"),
         .package(url: "https://github.com/ml-explore/mlx-swift", from: "0.30.0"),
+        // ≥ 0.1.1: the ending conv (width 24 → 3) never reaches mlx 0.32.2's channel-pad helper, which frees a buffer
+        // the GPU still reads (AB-T-0214).
+        .package(url: "https://github.com/xocialize/mlx-exact-conv-swift", from: "0.1.1"),
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.1.6"),
         .package(url: "https://github.com/xocialize/mlx-profiling.git", from: "0.1.0"),
     ],
@@ -33,6 +36,7 @@ let package = Package(
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXFast", package: "mlx-swift"),
                 .product(name: "MLXNN", package: "mlx-swift"),
+                .product(name: "MLXExactConv", package: "mlx-exact-conv-swift"),
             ],
             // Per-file .copy so the bundle layout is flat (forge ADR-0011).
             resources: [
@@ -59,6 +63,7 @@ let package = Package(
                 "NAFNetMLXCore",
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXNN", package: "mlx-swift"),
+                .product(name: "MLXExactConv", package: "mlx-exact-conv-swift"),
             ]
         ),
         .testTarget(
